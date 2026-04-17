@@ -1,0 +1,8 @@
+*.pyc
+*.cfg
+
+Include/
+legacy/
+Lib/
+Scripts/
+share/
