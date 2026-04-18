@@ -16,7 +16,7 @@ def random_value(array):
     p = [w / s for w in weights]
     return np.random.choice(array, p = p) 
 
-def estimate_goals(team: str, df) -> float:
+def train_model(df):
     cols = [('Team', 'SOG'), ('Team', 'PIM'), ('Team', 'PPG'), ('Team', 'PPO'), ('Team', 'SHG'), ('Faceoffs', 'FO%'),
        ('Advanced (5-on-5)', 'oZS%'), ('Advanced (5-on-5)', 'PDO')]
     X = df[cols]
@@ -31,8 +31,12 @@ def estimate_goals(team: str, df) -> float:
 
     #Using Linear Regression
     model = LinearRegression()
-    scores = cross_val_score(model, X_scaled, y, cv=kfold, scoring='neg_mean_squared_error')
     model.fit(X_scaled, y)
+    return model, scaler
+
+def estimate_goals(df, model, scaler) -> float:
+    cols = [('Team', 'SOG'), ('Team', 'PIM'), ('Team', 'PPG'), ('Team', 'PPO'), ('Team', 'SHG'), ('Faceoffs', 'FO%'),
+       ('Advanced (5-on-5)', 'oZS%'), ('Advanced (5-on-5)', 'PDO')]
 
     vector = []
     for attr in cols:
@@ -47,14 +51,14 @@ def estimate_goals(team: str, df) -> float:
         temp = vector[2] + vector[4]
     return temp
     
-def get_score(team: str, opp: str, team_df: pd.DataFrame, opp_df: pd.DataFrame, verbose = True) -> str:
+def get_score(team: str, opp: str, team_df: pd.DataFrame, opp_df: pd.DataFrame, models, scalers, verbose = True) -> str:
     #prints output by default, but this can be overrriden
 
-    score1 = estimate_goals(team, team_df)
+    score1 = estimate_goals(team_df, models[0], scalers[0])
     if type(score1) == np.ndarray:
         score1 = score1[0]
    
-    score2 = estimate_goals(opp, opp_df)
+    score2 = estimate_goals(opp_df, models[1], scalers[1])
     if type(score2) == np.ndarray:
         score2 = score2[0]
 
@@ -79,7 +83,7 @@ def get_score(team: str, opp: str, team_df: pd.DataFrame, opp_df: pd.DataFrame, 
     else:
         return opp
 
-def simulate_series(team: str, opp: str, team_df: pd.DataFrame, opp_df: pd.DataFrame, verbose = True) -> None:
+def simulate_series(team: str, opp: str, team_df: pd.DataFrame, opp_df: pd.DataFrame, models, scalers, verbose = True) -> None:
     #prints output by default, but this can be overridden
 
     team_wins = 0
@@ -88,9 +92,9 @@ def simulate_series(team: str, opp: str, team_df: pd.DataFrame, opp_df: pd.DataF
     for i in range(7):
         games += 1
         if verbose:
-            winner = get_score(team, opp, team_df, opp_df)
+            winner = get_score(team, opp, team_df, opp_df, models, scalers)
         else:
-            winner = get_score(team, opp, team_df, opp_df, verbose = False)
+            winner = get_score(team, opp, team_df, opp_df, models, scalers, verbose = False)
         if winner == team:
             team_wins += 1
         else:
@@ -106,7 +110,7 @@ def simulate_series(team: str, opp: str, team_df: pd.DataFrame, opp_df: pd.DataF
 
     return winner, games
 
-def n_simulations(team, opp, team_gamelog, opp_gamelog, n = 25):
+def n_simulations(team, opp, team_gamelog, opp_gamelog, models, scalers, n = 25):
     if team_gamelog is None:
         team_gamelog = gamelog(team)
     if opp_gamelog is None:
@@ -117,7 +121,7 @@ def n_simulations(team, opp, team_gamelog, opp_gamelog, n = 25):
     opp_wins = 0
     num_games2 = []
     for i in range(n):
-        winner, games = simulate_series(team, opp, team_gamelog, opp_gamelog, verbose = False)
+        winner, games = simulate_series(team, opp, team_gamelog, opp_gamelog, models, scalers, verbose = False)
         if winner == team:
             team_wins += 1
             num_games1.append(games)
